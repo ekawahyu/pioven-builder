@@ -1,5 +1,10 @@
 all: setup build
 
+build-gateway:
+	bash ./scripts/pibuilder_gateway.sh
+
+.PHONY: build-gateway
+
 build:
 	bash ./scripts/pibuilder.sh
 
