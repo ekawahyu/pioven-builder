@@ -70,10 +70,10 @@ if ! [[ -f "${PI_SSH_KEY}" ]]; then
   exit 1
 fi
 
-#if [[ -z "${PI_USERNAME}" ]]; then
-#  echo "PI_USERNAME needs to be configured with your designed username"
-#  exit 1
-#fi
+if [[ -z "${PI_USERNAME}" ]]; then
+  echo "PI_USERNAME needs to be configured with your designed username"
+  exit 1
+fi
 
 # Generate the password
 PI_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${PI_PASSWORD_LENGTH} | head -n 1)
@@ -132,8 +132,6 @@ sed -i "s/%PI_DNS_ADDRESS%/$PI_DNS_ADDRESS/g" "${ROOT_DIR}/first_run_gateway.sh"
 chmod 755 "${ROOT_DIR}/first_run_gateway.sh"
 cp "${PI_SSH_KEY}" "${ROOT_DIR}/id_rsa.pub"
 cp -Rf ./data "${ROOT_DIR}/opt/data"
-#cp -Rf ./scripts/interfaces.py "${ROOT_DIR}/interfaces.py"
-#cp ./files/hosts "${ROOT_DIR}/etc/hosts"
 
 # Set the crontab to update on a daily basis
 #cp ./files/update.sh "${ROOT_DIR}/etc/cron.daily/update"

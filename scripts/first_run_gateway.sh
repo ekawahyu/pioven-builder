@@ -9,12 +9,30 @@ set -e
 DATA_DIR=/opt/data
 
 stage_one(){
+if [ "%PI_USERNAME%" != "pi" ]; then
+#
+# Delete "pi" user and create another one
+#
+useradd -m %PI_USERNAME% -G sudo || true
+echo "%PI_USERNAME% ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_%PI_USERNAME%-nopasswd
+rm /etc/sudoers.d/010_pi-nopasswd
+deluser -remove-home pi
+#
+# Change user and group ID
+#
+usermod -u 1000 --shell /bin/bash %PI_USERNAME%
+groupmod -g 1000 %PI_USERNAME%
+fi
+#
+# Change user password
+#
+echo "%PI_USERNAME%:%PI_PASSWORD%" | chpasswd
 #
 # Install SSH key
 #
-install -d -m 700 /home/pi/.ssh
-mv /id_rsa.pub /home/pi/.ssh/authorized_keys
-chown pi:pi -Rf /home/pi/.ssh/
+install -d -m 700 /home/%PI_USERNAME%/.ssh
+mv /id_rsa.pub /home/%PI_USERNAME%/.ssh/authorized_keys
+chown %PI_USERNAME%:%PI_USERNAME% -Rf /home/%PI_USERNAME%/.ssh/
 #
 # Modify sources.list to point to US mirror
 #
@@ -39,7 +57,7 @@ sudo systemctl stop hostapd
 sudo systemctl stop dnsmasq
 sudo bash -c 'cat >> /etc/dhcpcd.conf << EOL
 interface wlan0
-	static ip_address=192.168.220.1/24
+	static ip_address=192.168.50.1/24
 	nohook wpa_supplicant
 EOL'
 # sudo systemctl restart dhcpcd
@@ -68,14 +86,14 @@ ssid=gateway
 wpa_passphrase=password
 EOL'
 #
-# Assign ssid=gateway-xxxx and password=c0nectr1c
+# Assign ssid=gateway-xxxx and password=iotgateway
 #
-sudo sed -i '/^ssid=/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/ssid=gateway-&/')"'/' /etc/hostapd/hostapd.conf
-sudo sed -i '/^wpa_passphrase=/s/.*/wpa_passphrase=c0nectr1c/' /etc/hostapd/hostapd.conf
-sudo sed -i '/127.0.1.1\traspberrypi/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/127.0.1.1\tgateway-&/')"'/' /etc/hosts
-sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/gateway-&/' | sudo tee /etc/hostname > /dev/null 2>&1
+sudo sed -i '/^ssid=/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/ssid=%PI_HOSTNAME%-&/')"'/' /etc/hostapd/hostapd.conf
+sudo sed -i '/^wpa_passphrase=/s/.*/wpa_passphrase=iotgateway/' /etc/hostapd/hostapd.conf
+sudo sed -i '/127.0.1.1\traspberrypi/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/127.0.1.1\t%PI_HOSTNAME%-&/')"'/' /etc/hosts
+sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/%PI_HOSTNAME%-&/' | sudo tee /etc/hostname > /dev/null 2>&1
 #
-# Configure hostpad and port forwarding
+# Configure hostapd and port forwarding
 #
 sudo sed -i 's/#DAEMON_CONF=.*/DAEMON_CONF=\"\/etc\/hostapd\/hostapd.conf\"/g' /etc/default/hostapd
 sudo sed -i 's/DAEMON_CONF=.*/DAEMON_CONF=\/etc\/hostapd\/hostapd.conf/g' /etc/init.d/hostapd
@@ -83,7 +101,7 @@ sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig
 sudo bash -c 'cat > /etc/dnsmasq.conf << EOL
 interface=wlan0      # Use interface wlan0  
 server=1.1.1.1       # Use Cloudflare DNS  
-dhcp-range=192.168.220.50,192.168.220.150,12h # IP range and lease time
+dhcp-range=192.168.50.10,192.168.50.50,12h # IP range and lease time
 EOL'
 sudo sed -i 's/#net.ipv4.ip_forward=.*/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
 sudo bash -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
@@ -113,22 +131,6 @@ stage_one
 sudo touch /var/log/rebooting-to-stage-2
 sudo reboot
 fi
-
-# Delete "pi" user and create another one
-#useradd -m %PI_USERNAME% -G sudo || true
-#echo "%PI_USERNAME%:%PI_PASSWORD%" | chpasswd
-#install -d -m 700 /home/%PI_USERNAME%/.ssh
-#mv /id_rsa.pub /home/%PI_USERNAME%/.ssh/authorized_keys
-#chown %PI_USERNAME%:%PI_USERNAME% -Rf /home/%PI_USERNAME%/.ssh/
-
-#echo "%PI_USERNAME% ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_%PI_USERNAME%-nopasswd
-
-#rm /etc/sudoers.d/010_pi-nopasswd
-#deluser -remove-home pi
-
-# Change user and group ID
-#usermod -u 1000 --shell /bin/bash %PI_USERNAME%
-#groupmod -g 1000 %PI_USERNAME%
 
 # Configure hostname
 #randomWord1=$(shuf ${DATA_DIR}/words.txt -n 1 | sed -e "s/\s/-/g")
