@@ -52,7 +52,7 @@ stage_two(){
 #
 # Install hostapd and dnsmasq
 #
-sudo apt-get install -y hostapd dnsmasq
+sudo apt-get install -y hostapd dnsmasq socat
 sudo systemctl stop hostapd
 sudo systemctl stop dnsmasq
 sudo bash -c 'cat >> /etc/dhcpcd.conf << EOL
@@ -86,10 +86,10 @@ ssid=gateway
 wpa_passphrase=password
 EOL'
 #
-# Assign ssid=gateway-xxxx and password=iotgateway
+# Assign ssid=gateway-xxxx and random password
 #
 sudo sed -i '/^ssid=/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/ssid=%PI_HOSTNAME%-&/')"'/' /etc/hostapd/hostapd.conf
-sudo sed -i '/^wpa_passphrase=/s/.*/wpa_passphrase=iotgateway/' /etc/hostapd/hostapd.conf
+sudo sed -i '/^wpa_passphrase=/s/.*/wpa_passphrase=%PI_PASSWORD%/' /etc/hostapd/hostapd.conf
 sudo sed -i '/127.0.1.1\traspberrypi/s/.*/'"$(sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/127.0.1.1\t%PI_HOSTNAME%-&/')"'/' /etc/hosts
 sed 's/://g' /sys/class/net/wlan0/address | sed 's/.*\(....\)$/\1/' | sed 's/.*/%PI_HOSTNAME%-&/' | sudo tee /etc/hostname > /dev/null 2>&1
 #
@@ -112,6 +112,10 @@ sudo systemctl unmask hostapd
 sudo systemctl enable hostapd
 sudo systemctl start hostapd
 sudo service dnsmasq start
+sudo bash -c 'cat >> /broadcast-info.sh << EOL
+sudo echo 'this is testing socat' | socat - udp-sendto:255.255.255.255:12345,broadcast
+EOL'
+sudo echo 'this is testing direct socat' | socat - udp-sendto:255.255.255.255:12345,broadcast
 }
 
 if [ -f /var/log/rebooting-done ]; then
